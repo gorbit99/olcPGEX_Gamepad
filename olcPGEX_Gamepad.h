@@ -88,7 +88,7 @@ namespace olc
 		DPAD_D = 17,
 	};
 
-	enum class Axes {
+	enum class GPAxes {
 		LX = 1,
 		LY = 0,
 		RX = 5,
@@ -115,7 +115,7 @@ namespace olc
 		static std::vector<GamePad> getGamepads();
 		bool valid = true;
 		void poll();
-		float getAxis(Axes a);
+		float getAxis(GPAxes a);
 		HWButton getButton(GPButtons b);
 		std::string getName();
 		int getAxisCount();
@@ -770,7 +770,7 @@ olc::GamePad olc::GamePad::selectWithButton(std::vector<olc::GamePad> &pads, olc
 #ifndef OLC_GAMEPAD_DEADZONE
 #define OLC_GAMEPAD_DEADZONE 0.2f
 #endif
-float olc::GamePad::getAxis(olc::Axes a) {
+float olc::GamePad::getAxis(olc::GPAxes a) {
 
 	float axis = axes[static_cast<int>(a)];
 	if (axis > 1) axis = 1;
@@ -779,7 +779,7 @@ float olc::GamePad::getAxis(olc::Axes a) {
 		axis = 0;
 
 #ifdef WIN32
-	if (!xInput && (a == Axes::TL || a == Axes::TR))
+	if (!xInput && (a == GPAxes::TL || a == GPAxes::TR))
 		return (axis + 1) / 2;
 #endif
 	return axis;
