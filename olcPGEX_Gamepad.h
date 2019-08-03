@@ -626,7 +626,7 @@ void olc::GamePad::poll() {
 
 	input_event event;
 	while (readEvent(event)) {
-		if (event.type == EV_KEY && (event.code & BTN_GAMEPAD) == BTN_GAMEPAD) {
+		if (event.type == EV_KEY && ((event.code & BTN_GAMEPAD) == BTN_GAMEPAD || (event.code & BTN_DPAD_UP) == BTN_DPAD_UP)) {
 			const int32_t buttonCodes[]{
 				BTN_X,
 				BTN_A,
@@ -649,16 +649,25 @@ void olc::GamePad::poll() {
 			};
 
 			for (int i = 0; i < sizeof(buttonCodes) / sizeof(int32_t); i++) {
+				std::cout << "Event code: " << event.code << '\n';
 				if (event.code == buttonCodes[i]) {
 					bool pressed = event.value;
 					handleButton(i, pressed);
 
+					std::cout << "Button id: " << i << "\n";
+
 					if (i >= 14) {
-						axes[6] = int(i == 15 && pressed) - int(i == 14 && pressed);
-						axes[7] = int(i == 17 && pressed) - int(i == 16 && pressed);
+						if (i == 14)
+							axes[6] = -int(pressed);
+						if (i == 15)
+							axes[6] = int(pressed);
+						if (i == 16)
+							axes[7] = -int(pressed);
+						if (i == 17)
+							axes[7] = int(pressed);
 					}
 					if (i == 6) axes[4] = int(pressed);
-					if (i == 6) axes[3] = int(pressed);
+					if (i == 7) axes[3] = int(pressed);
 				}
 			}
 		}
