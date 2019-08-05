@@ -157,6 +157,9 @@ namespace olc
 
 #pragma endregion
 
+#ifdef OLC_PGE_GAMEPAD
+#undef OLC_PGE_GAMEPAD
+
 #pragma region Custom Dataformat
 #ifdef WIN32
 
@@ -193,9 +196,6 @@ DIDATAFORMAT gamepad = {
 #pragma endregion
 
 #pragma region Class Definition
-
-#ifdef OLC_PGE_GAMEPAD
-#undef OLC_PGE_GAMEPAD
 
 #pragma region Platform Dependent
 
@@ -290,8 +290,6 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 			range.lMin = -1000;
 			range.lMax = 1000;
 			thisDevice->SetProperty(DIPROP_RANGE, &range.diph);
-
-			olc::PGEX::pge->DrawString(150, 150 + lpddoi->dwOfs * 2, std::to_string(lpddoi->dwType >> 8));
 			axisPositions->push_back((lpddoi->dwType >> 8) & 0xffff);
 		}
 
