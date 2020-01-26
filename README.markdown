@@ -26,7 +26,7 @@ olc::GamePad::init();
 gamepads = olc::GamePad::getGamepads();
 //OnUserUpdate
 if (!player1.valid) {
-  player1 = olc::GamePad::selectWithButton(gamepads, olc::Button::FACE_D);
+  player1 = olc::GamePad::selectWithButton(gamepads, olc::GPButton::FACE_D);
   return true;
 }
 ```
