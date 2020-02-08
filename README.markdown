@@ -16,7 +16,7 @@ On linux, compiling shouldn't change, just include the .h file.
 # Usage
 When using the code, you have to define `OLC_PGE_GAMEPAD` in the same manner as you would with `OLC_PGE_APPLICATION`.
 To use the PGEX, first you have to call `olc::GamePad::init()`, this only matters on windows, but it makes the code cross-platform.<br><br>
-You can get a vector of gamepads using `olc::GamePad::getGamepads()`, this will return an `std::vector<olc::GamePad>` object. You can of course index into this vector, but this isn't advisable, as the order isn't defined, and can change, and some controllers can appear multiple times in the vector. Instead use `olc::GamePad::selectWithButton(std::vector<olc::GamePad> gamepads, olc::GPBUTTONS button)`. This takes in a button that will be queried, and returns the first controller in the list, that has this button down. If no controllers are found, an invalid one will be returned. The following code is an example:
+You can get a vector of gamepads using `olc::GamePad::getGamepads()`, this will return an `std::vector<olc::GamePad>` object. You can of course index into this vector, but this isn't advisable, as the order isn't defined, and can change, and some controllers can appear multiple times in the vector. Instead use `olc::GamePad::selectWithButton(std::vector<olc::GamePad> gamepads, olc::GPButtons button)`. This takes in a button that will be queried, and returns the first controller in the list, that has this button down. If no controllers are found, an invalid one will be returned. The following code is an example:
 ```cpp
 //Variable declarations
 olc::GamePad player1;
