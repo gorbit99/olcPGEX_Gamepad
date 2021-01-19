@@ -1,36 +1,54 @@
-# olcPGEX_Gamepad
+# olcPGEX\_Gamepad
 Cross platform (Windows + Linux) Gamepad API for the Pixel Game Engine (http://onelonecoder.com/)
 
 # Compiling
 
 #### Windows
-With Visual Studio installed, you don't need to do anything besides putting the file inside your solution folder. If you're using a different compiler that doesn't support `#pragma comment(lib, ...)`, then you have to link against the following:<br>
+With Visual Studio installed, you don't need to do anything besides putting the file inside your solution folder.
+
+With MinGW the following command can be used to compile:
+
 ```
-dinput8.lib
-dxguid.lib
-xinput9_1_0.lib
+g++ main.cpp -o program.exe -luser32 -lgdi32 -lopengl32 -lgdiplus -lShlwapi -lstdc++fs -static -std=c++17 -lxinput9_1_0 -lole32 -loleaut32 -ldinput8 -ldxguid -ldwmapi
 ```
+
 #### Linux
-On linux, compiling shouldn't change, just include the .h file.
+On linux, compiling shouldn't change, just include the .h file in your project.
 
 # Usage
 When using the code, you have to define `OLC_PGE_GAMEPAD` in the same manner as you would with `OLC_PGE_APPLICATION`.
-To use the PGEX, first you have to call `olc::GamePad::init()`, this only matters on windows, but it makes the code cross-platform.<br><br>
-You can get a vector of gamepads using `olc::GamePad::getGamepads()`, this will return an `std::vector<olc::GamePad>` object. You can of course index into this vector, but this isn't advisable, as the order isn't defined, and can change, and some controllers can appear multiple times in the vector. Instead use `olc::GamePad::selectWithButton(std::vector<olc::GamePad> gamepads, olc::GPButtons button)`. This takes in a button that will be queried, and returns the first controller in the list, that has this button down. If no controllers are found, an invalid one will be returned. The following code is an example:
+
+To initialize the extension, call `olc::GamePad::init()`. Afterwards it will automatically collect gamepads that are connected and will poll them for input.
+
+To get a gamepad, you can either get a reference to the std::vector containing all of the controllers with `olc::GamePad::getGamepads()` and index into that, or if you only need one you can use
+`olc::Gamepad::selectWithButton(button)`. Both of these methods return a pointer to a gamepad. SelectWithButton returns nullptr, if no such gamepad is found.
+
+You can query the capabilities of a certain contoller by calling `myGamepad->hasButton(button)` and `myGamepad->hasAxis(axis)`. To get the state of a button or axis, you can do `myGamepad->getButton(button)`
+and `myGamepad->getAxis(axis)`. Buttons use the usual structure known from the PixelGameEngine, axes return a float.
+
+The following is the usual usecase of selectWithButton:
 ```cpp
+#define OLC_PGE_GAMEPAD
+#include "olcPGEX_Gamepad.h"
+
 //Variable declarations
-olc::GamePad player1;
-std::vector<olc::GamePad> gamepads;
+olc::GamePad *player;
+
 //OnUserCreate
 olc::GamePad::init();
-gamepads = olc::GamePad::getGamepads();
+
 //OnUserUpdate
-if (!player1.valid) {
-  player1 = olc::GamePad::selectWithButton(gamepads, olc::GPButtons::FACE_D);
+if (player == nullptr){
+  player = olc::GamePad::selectWithButton(olc::GPButtons::FACE_D);
   return true;
 }
 ```
-This returns the first controller with the bottom face button pressed (A on XBOX controllers, X on PS controllers).<br><br
+This returns the first controller with the bottom face button pressed (A on XBOX controllers, X on PS controllers).
+
+To make the controller vibrate, you can use `myGamepad->startVibration(strength)` and `myGamepad->stopVibration()`. Strength is a value between 0 and 1.
+
+To distinguish between multiple controllers, use the `myGamepad->getId()` function.
+
 The following buttons are part of the `olc::GPButtons` enum:
 ```
 Enum      XBOX/PS
@@ -64,13 +82,15 @@ TR       0..1    Right trigger as an axis
 DX      -1..1    DPAD horizontal axis
 DY      -1..1    DPAD vertical axis
 ```
-These can be queried using `getButton(olc::GPButton)` and `getAxis(olc::GPAxes)` respectively. `getButton` returns an `HWButton` struct that works exactly the same as getting a key in the PixelGameEngine. A deadzone has been built into `getAxis`, which works on a per axis basis, instead of acting on the axis pairs. If you want to alter the behaviour, define `OLC_GAMEPAD_DEADZONE` as a floating point value.<br><br>
-You can get some information about the device using the following functions:
-```c++
-std::string getName();    //Returns the name of the gamepad
-int getAxisCount();       //Returns the number of axes (always 8)
-int getButtonCount();     //Returns the number of buttons (always 16)
-```
-Vibrations are also supported, use `startVibration(float strength)` to start them and `stopVibration()` to stop them.
+
+An example file is provided to test the extension.
+
 #### Controller support:
 The code supports Xbox controllers and the DualShock 4 controller out of the box. If you have a problem with the support for a game controller, please open an issue and I'll try to resolve it. Alternatively there exists many programs to turn any controller into an xinput compatible controller, those should fix the issue.
+
+# Migrating from the previous version
+Version 0.2.0 changed a lot, so for previous users, the following has to be done to migrate to the new version:
+
+- Now you get gamepads in pointer form, so you'll need to swap the types out.
+- Getting the gamepad vector now gives you a reference to a vector of pointers, also you can index into it safely now.
+- You don't need to (and can't) manually poll gamepads anymore.

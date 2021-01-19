@@ -8,11 +8,15 @@ KrossX
 MaGetzUb
 Tutas
 Zleapingbear
+Huhlig
+Bispoo
+Lett1
 
 Thx for KrossX for giving me a link to his original work, which helped solve a few problems
 */
 
 #include "olcPixelGameEngine.h"
+#include <utility>
 #include <vector>
 #include <string>
 
@@ -25,8 +29,11 @@ Thx for KrossX for giving me a link to his original work, which helped solve a f
 #include <dinput.h>
 #pragma comment (lib, "dinput8.lib")
 #pragma comment (lib, "dxguid.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "oleaut32.lib")
 #include <wbemidl.h>
 #include <oleauto.h>
+
 
 #if _WIN32_WINNT == _WIN32_WINNT_NT4
 #define CURVERSION _WIN32_WINNT_NT4
@@ -52,6 +59,7 @@ Thx for KrossX for giving me a link to his original work, which helped solve a f
 
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 1
+
 #include <Xinput.h>
 #undef _WIN32_WINNT
 #define _WIN32_WINNT CURVERSION
@@ -59,17 +67,20 @@ Thx for KrossX for giving me a link to his original work, which helped solve a f
 #endif
 
 #ifdef __linux__
+
 #include <linux/input.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <string.h>
+#include <cstring>
 #include <unistd.h>
+
 #endif
 
-namespace olc
-{
+namespace olc {
 #pragma region Enums
+#define GP_BUTTON_COUNT 18
+#define GP_AXIS_COUNT 8
 	enum class GPButtons {
 		FACE_D = 1,
 		FACE_L = 0,
@@ -86,7 +97,7 @@ namespace olc
 		DPAD_L = 14,
 		DPAD_R = 15,
 		DPAD_U = 16,
-		DPAD_D = 17,
+		DPAD_D = 17
 	};
 
 	enum class GPAxes {
@@ -101,54 +112,124 @@ namespace olc
 	};
 #pragma endregion
 
-	class GamePad {
+	class GamePad : public olc::PGEX {
 	public:
 #ifdef WIN32
-		GamePad(LPCDIDEVICEINSTANCE lpddi);
+		GamePad(LPCDIDEVICEINSTANCEA lpddi);
 		GamePad(DWORD xId);
 #endif
-#ifdef __linux__
-		GamePad(std::string path);
-#endif
-		GamePad();
-		~GamePad();
-		static void init();
-		static std::vector<GamePad> getGamepads();
-		bool valid = true;
-		void poll();
-		float getAxis(GPAxes a);
-		HWButton getButton(GPButtons b);
-		std::string getName();
-		int getAxisCount();
-		int getButtonCount();
-		void startVibration(float strength = 1);
-		void stopVibration();
+		GamePad(const GamePad &other) = delete;
 
-		static GamePad selectWithButton(std::vector<GamePad> &pads, GPButtons b);
+		~GamePad();
+
+		static void init();
+
+		static std::vector<GamePad *> &getGamepads();
+
+		float getAxis(GPAxes a);
+
+		bool hasAxis(GPAxes a);
+
+		HWButton getButton(GPButtons b);
+
+		bool hasButton(GPButtons b);
+
+		std::string getName();
+
+		std::string getId();
+
+		bool stillConnected = true;
+
+		[[nodiscard]] int getAxisCount() const;
+
+		[[nodiscard]] int getButtonCount() const;
+
+		void startVibration(float strength = 1) const;
+
+		void stopVibration() const;
+
+		static GamePad *selectWithButton(olc::GPButtons b);
+
+	protected:
+		void OnBeforeUserUpdate(float &fElapsedTime) override;
+
 	private:
-		std::string name = "";
-		int axisCount = 8;
-		int buttonCount = 16;
-		float axes[8]{ 0 };
-		olc::HWButton buttons[20];
-		bool ff;
+		GamePad() = default;
+		void poll();
+
+		static std::vector<GamePad *> gamepads;
+
+		static void updateGamepads();
+
+		std::string name;
+		int axisCount = GP_AXIS_COUNT;
+		int buttonCount = GP_BUTTON_COUNT;
+		float axes[GP_AXIS_COUNT]{ 0 };
+		olc::HWButton buttons[GP_BUTTON_COUNT];
+		bool ff = false;
+		bool availableButtons[GP_BUTTON_COUNT] = { false };
+		bool availableAxes[GP_AXIS_COUNT] = { false };
 
 		void handleButton(int id, bool value);
+
 #ifdef WIN32
-		LPDIRECTINPUTDEVICE8 thisDevice;
-		static IDirectInput8 *dev;
+		LPDIRECTINPUTDEVICE8A thisDevice;
+		static IDirectInput8A *dev;
 		std::vector<int> axisPositions;
 		LPDIRECTINPUTEFFECT effect = nullptr;
 
 		bool xInput = false;
 		DWORD xId;
+		static std::thread deviceEnumThread;
 #endif
 #ifdef __linux__
+
+		GamePad(std::string path, int fd);
+
+		static GamePad *openGamepad(const std::string &path);
+
+		void reconnect();
+
+		bool readEvent(input_event &event) const;
+
+		int fd = -1;
+		ff_effect effect{};
 		std::vector<int> maxAbs;
-		bool readEvent(input_event &event);
-		int fd;
-		ff_effect effect;
 		std::string path;
+		static X11::Display *display;
+
+
+		constexpr static const int32_t buttonCodes[GP_BUTTON_COUNT]{
+				BTN_X,
+				BTN_A,
+				BTN_B,
+				BTN_Y,
+				BTN_TL,
+				BTN_TR,
+				BTN_TL2,
+				BTN_TR2,
+				BTN_SELECT,
+				BTN_START,
+				BTN_THUMBL,
+				BTN_THUMBR,
+				0,
+				0,
+				BTN_DPAD_LEFT,
+				BTN_DPAD_RIGHT,
+				BTN_DPAD_UP,
+				BTN_DPAD_DOWN
+		};
+
+		constexpr static const int32_t axisCodes[GP_AXIS_COUNT]{
+				ABS_Y,
+				ABS_X,
+				ABS_RY,
+				ABS_RZ,
+				ABS_Z,
+				ABS_RX,
+				ABS_HAT0X,
+				ABS_HAT0Y
+		};
 #endif
 	};
 }
@@ -164,9 +245,9 @@ namespace olc
 #ifdef WIN32
 
 struct GamePadState {
-	DWORD axes[6];
+	DWORD axes[GP_AXIS_COUNT];
 	DWORD povHat;
-	BYTE buttons[20];
+	BYTE buttons[GP_BUTTON_COUNT];
 };
 
 #ifndef DIDFT_OPTIONAL
@@ -180,27 +261,27 @@ DIOBJECTDATAFORMAT g_aObjectFormats[27] = {
 	{0, (DWORD)FIELD_OFFSET(GamePadState, axes[2])    , DIDFT_AXIS | DIDFT_ANYINSTANCE | DIDFT_OPTIONAL, 0},
 	{0, (DWORD)FIELD_OFFSET(GamePadState, axes[4])    , DIDFT_AXIS | DIDFT_ANYINSTANCE | DIDFT_OPTIONAL, 0},
 	{0, (DWORD)FIELD_OFFSET(GamePadState, axes[5])    , DIDFT_AXIS | DIDFT_ANYINSTANCE | DIDFT_OPTIONAL, 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, povHat)     , DIDFT_POV | DIDFT_ANYINSTANCE                  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 0]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 1]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 2]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 3]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 4]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 5]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 6]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 7]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 8]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[ 9]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[10]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[11]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[12]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[13]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[14]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[15]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[16]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[17]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[18]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
-	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[19]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000  , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, povHat)     , DIDFT_POV | DIDFT_ANYINSTANCE                 , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[0]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[1]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[2]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[3]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[4]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[5]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[6]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[7]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[8]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[9]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[10]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[11]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[12]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[13]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[14]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[15]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[16]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[17]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[18]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
+	{0, (DWORD)FIELD_OFFSET(GamePadState, buttons[19]), DIDFT_BUTTON | DIDFT_ANYINSTANCE | 0x80000000    , 0},
 };
 
 DIDATAFORMAT gamepad = {
@@ -222,8 +303,122 @@ DIDATAFORMAT gamepad = {
 #pragma region Windows
 #ifdef WIN32
 
-IDirectInput8 *olc::GamePad::dev = nullptr;
+IDirectInput8A *olc::GamePad::dev = nullptr;
 
+std::thread olc::GamePad::deviceEnumThread;
+
+#define SAFE_RELEASE(p) { if ( (p) ) { (p)->Release(); (p) = 0; } }
+BOOL IsXInputDevice(const GUID *pGuidProductFromDirectInput)
+{
+	IWbemLocator *pIWbemLocator = NULL;
+	IEnumWbemClassObject *pEnumDevices = NULL;
+	IWbemClassObject *pDevices[20] = { 0 };
+	IWbemServices *pIWbemServices = NULL;
+	BSTR                    bstrNamespace = NULL;
+	BSTR                    bstrDeviceID = NULL;
+	BSTR                    bstrClassName = NULL;
+	DWORD                   uReturned = 0;
+	bool                    bIsXinputDevice = false;
+	UINT                    iDevice = 0;
+	VARIANT                 var;
+	HRESULT                 hr;
+
+	// CoInit if needed
+	hr = CoInitialize(NULL);
+	bool bCleanupCOM = SUCCEEDED(hr);
+
+	// So we can call VariantClear() later, even if we never had a successful IWbemClassObject::Get().
+	VariantInit(&var);
+
+	// Create WMI
+	hr = CoCreateInstance(__uuidof(WbemLocator),
+		NULL,
+		CLSCTX_INPROC_SERVER,
+		__uuidof(IWbemLocator),
+		(LPVOID *)&pIWbemLocator);
+	if (FAILED(hr) || pIWbemLocator == NULL)
+		goto LCleanup;
+
+	bstrNamespace = SysAllocString(L"\\\\.\\root\\cimv2"); if (bstrNamespace == NULL) goto LCleanup;
+	bstrClassName = SysAllocString(L"Win32_PNPEntity");   if (bstrClassName == NULL) goto LCleanup;
+	bstrDeviceID = SysAllocString(L"DeviceID");          if (bstrDeviceID == NULL)  goto LCleanup;
+
+	// Connect to WMI 
+	hr = pIWbemLocator->ConnectServer(bstrNamespace, NULL, NULL, 0L,
+		0L, NULL, NULL, &pIWbemServices);
+	if (FAILED(hr) || pIWbemServices == NULL)
+		goto LCleanup;
+
+	// Switch security level to IMPERSONATE. 
+	CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL,
+		RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE);
+
+	hr = pIWbemServices->CreateInstanceEnum(bstrClassName, 0, NULL, &pEnumDevices);
+	if (FAILED(hr) || pEnumDevices == NULL)
+		goto LCleanup;
+
+	// Loop over all devices
+	for (;; )
+	{
+		// Get 20 at a time
+		hr = pEnumDevices->Next(10000, 20, pDevices, &uReturned);
+		if (FAILED(hr))
+			goto LCleanup;
+		if (uReturned == 0)
+			break;
+
+		for (iDevice = 0; iDevice < uReturned; iDevice++)
+		{
+			// For each device, get its device ID
+			hr = pDevices[iDevice]->Get(bstrDeviceID, 0L, &var, NULL, NULL);
+			if (SUCCEEDED(hr) && var.vt == VT_BSTR && var.bstrVal != NULL)
+			{
+				// Check if the device ID contains "IG_".  If it does, then it's an XInput device
+					// This information can not be found from DirectInput 
+				if (wcsstr(var.bstrVal, L"IG_"))
+				{
+					// If it does, then get the VID/PID from var.bstrVal
+					DWORD dwPid = 0, dwVid = 0;
+					WCHAR *strVid = wcsstr(var.bstrVal, L"VID_");
+					if (strVid && swscanf_s(strVid, L"VID_%4X", &dwVid) != 1)
+						dwVid = 0;
+					WCHAR *strPid = wcsstr(var.bstrVal, L"PID_");
+					if (strPid && swscanf_s(strPid, L"PID_%4X", &dwPid) != 1)
+						dwPid = 0;
+
+					// Compare the VID/PID to the DInput device
+					DWORD dwVidPid = MAKELONG(dwVid, dwPid);
+					if (dwVidPid == pGuidProductFromDirectInput->Data1)
+					{
+						bIsXinputDevice = true;
+						goto LCleanup;
+					}
+				}
+			}
+			VariantClear(&var);
+			SAFE_RELEASE(pDevices[iDevice]);
+		}
+	}
+
+LCleanup:
+	VariantClear(&var);
+	if (bstrNamespace)
+		SysFreeString(bstrNamespace);
+	if (bstrDeviceID)
+		SysFreeString(bstrDeviceID);
+	if (bstrClassName)
+		SysFreeString(bstrClassName);
+	for (iDevice = 0; iDevice < 20; iDevice++)
+		SAFE_RELEASE(pDevices[iDevice]);
+	SAFE_RELEASE(pEnumDevices);
+	SAFE_RELEASE(pIWbemLocator);
+	SAFE_RELEASE(pIWbemServices);
+
+	if (bCleanupCOM)
+		CoUninitialize();
+
+	return bIsXinputDevice;
+}
 void olc::GamePad::init() {
 	HINSTANCE hinst = GetModuleHandle(NULL);
 	DirectInput8Create(
@@ -233,41 +428,73 @@ void olc::GamePad::init() {
 		(LPVOID *)&dev,
 		NULL
 	);
-}
 
-std::vector<olc::GamePad> olc::GamePad::getGamepads() {
-	std::vector<olc::GamePad> result;
+	pge->pgex_Register(new olc::GamePad());
 
-	for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
-		XINPUT_STATE state;
-		DWORD dwResult = XInputGetState(i, &state);
-		if (dwResult == ERROR_SUCCESS) {
-			GamePad xGamePad{ i };
-			result.push_back(xGamePad);
-		}
-	}
+	deviceEnumThread = std::thread{ [&]() {
+		auto enumFunction = [](LPCDIDEVICEINSTANCEA lpddi, LPVOID pvRef) {
+			if (!(lpddi->dwDevType & DI8DEVTYPE_GAMEPAD)) {
+				return DIENUM_CONTINUE;
+			}
 
-	auto enumFunction = [](LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef) {
-		if (!(lpddi->dwDevType & DI8DEVTYPE_GAMEPAD))
+			auto result = reinterpret_cast<std::vector<olc::GamePad *> *>(pvRef);
+			if (!IsXInputDevice(&lpddi->guidProduct)) {
+				bool found = false;
+				for (auto &gamepad : *result) {
+					if (gamepad->getId() == lpddi->tszInstanceName) {
+						found = true;
+						if (!gamepad->stillConnected) {
+							gamepad->stillConnected = true;
+						}
+						break;
+					}
+				}
+				if (found) {
+					return DIENUM_CONTINUE;
+				}
+				result->push_back(new olc::GamePad{ lpddi });
+			}
+
 			return DIENUM_CONTINUE;
+		};
+		while (true) {
+			for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
+				XINPUT_STATE state;
+				DWORD dwResult = XInputGetState(i, &state);
+				if (dwResult == ERROR_SUCCESS) {
+					bool found = false;
+					for (auto &gamepad : gamepads) {
+						if (gamepad->getId() == std::to_string(i)) {
+							found = true;
+							if (!gamepad->stillConnected) {
+								gamepad->stillConnected = true;
+							}
+							break;
+						}
+					}
+					if (found) {
+						continue;
+					}
+					gamepads.push_back(new GamePad{ i });
+				}
+			}
 
-		auto result = reinterpret_cast<std::vector<olc::GamePad> *>(pvRef);
-		result->push_back(olc::GamePad{ lpddi });
-
-		return DIENUM_CONTINUE;
-	};
-
-	dev->EnumDevices(
-		DI8DEVCLASS_GAMECTRL,
-		enumFunction,
-		(LPVOID)&result,
-		DIEDFL_ATTACHEDONLY
-	);
-
-	return result;
+			dev->EnumDevices(
+				DI8DEVCLASS_GAMECTRL,
+				enumFunction,
+				(LPVOID)&gamepads,
+				DIEDFL_ALLDEVICES
+			);
+		}
+	} };
+	deviceEnumThread.detach();
 }
 
-inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
+void olc::GamePad::updateGamepads() {
+
+}
+
+inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCEA lpddi)
 {
 	name = lpddi->tszInstanceName;
 
@@ -288,12 +515,11 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 
 	thisDevice->SetDataFormat(&gamepad);
 
-	auto enumDOFunction = [](LPCDIDEVICEOBJECTINSTANCE lpddoi, LPVOID pvRef) {
-
+	auto enumDOFunction = [](LPCDIDEVICEOBJECTINSTANCEA lpddoi, LPVOID pvRef) {
 		IDirectInputDevice8A *thisDevice;
 		std::vector<int> *axisPositions;
 
-		std::tie(thisDevice, axisPositions) = *reinterpret_cast<std::tuple<IDirectInputDevice8A*, std::vector<int> *> *>(pvRef);
+		std::tie(thisDevice, axisPositions) = *reinterpret_cast<std::tuple<IDirectInputDevice8A *, std::vector<int> *> *>(pvRef);
 
 		//Axis
 		if (lpddoi->dwType & DIDFT_AXIS) {
@@ -310,7 +536,6 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 
 		//Button
 		if (lpddoi->dwType & DIDFT_BUTTON) {
-
 		}
 
 		//POVhat
@@ -320,6 +545,13 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 
 		return DIENUM_CONTINUE;
 	};
+
+	for (int i = 0; i < GP_BUTTON_COUNT; i++) {
+		availableButtons[i] = true;
+	}
+	for (int i = 0; i < GP_AXIS_COUNT; i++) {
+		availableAxes[i] = true;
+	}
 
 	auto input = std::make_tuple(thisDevice, &axisPositions);
 
@@ -336,9 +568,9 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 	for (auto &p : axisPositions)
 		p -= min;
 
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < GP_AXIS_COUNT; i++)
 		axes[i] = 0;
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < GP_BUTTON_COUNT; i++) {
 		buttons[i].bHeld = false;
 		buttons[i].bPressed = false;
 		buttons[i].bReleased = false;
@@ -369,8 +601,9 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 			effect->Download();
 			effect->Stop();
 		}
-		else
+		else {
 			ff = false;
+		}
 	}
 
 	thisDevice->Acquire();
@@ -379,12 +612,22 @@ inline olc::GamePad::GamePad(LPCDIDEVICEINSTANCE lpddi)
 inline olc::GamePad::GamePad(DWORD xId) :xId(xId), xInput(true) {
 	XINPUT_CAPABILITIES caps;
 	XInputGetCapabilities(xId, 0, &caps);
+	for (int i = 0; i < GP_BUTTON_COUNT; i++) {
+		availableButtons[i] = true;
+	}
+	for (int i = 0; i < GP_AXIS_COUNT; i++) {
+		availableAxes[i] = true;
+	}
 	name = "XInput Controller";
 }
 
 void olc::GamePad::poll() {
 
-	for (int i = 0; i < 20; i++) {
+	if (!stillConnected) {
+		return;
+	}
+
+	for (int i = 0; i < GP_BUTTON_COUNT; i++) {
 		buttons[i].bPressed = false;
 		buttons[i].bReleased = false;
 	}
@@ -394,6 +637,7 @@ void olc::GamePad::poll() {
 
 		if (FAILED(thisDevice->Poll())) {
 			thisDevice->Acquire();
+			stillConnected = false;
 			return;
 		}
 
@@ -416,41 +660,41 @@ void olc::GamePad::poll() {
 			//POVhat
 			if (data[i].dwOfs == FIELD_OFFSET(GamePadState, povHat)) {
 				switch (data[i].dwData / DI_DEGREES / 45) {
-				case 0:
-					axes[6] = 0;
-					axes[7] = -1;
-					break;
-				case 1:
-					axes[6] = 1;
-					axes[7] = -1;
-					break;
-				case 2:
-					axes[6] = 1;
-					axes[7] = 0;
-					break;
-				case 3:
-					axes[6] = 1;
-					axes[7] = 1;
-					break;
-				case 4:
-					axes[6] = 0;
-					axes[7] = 1;
-					break;
-				case 5:
-					axes[6] = -1;
-					axes[7] = 1;
-					break;
-				case 6:
-					axes[6] = -1;
-					axes[7] = 0;
-					break;
-				case 7:
-					axes[6] = -1;
-					axes[7] = -1;
-					break;
-				default:
-					axes[6] = 0;
-					axes[7] = 0;
+					case 0:
+						axes[6] = 0;
+						axes[7] = -1;
+						break;
+					case 1:
+						axes[6] = 1;
+						axes[7] = -1;
+						break;
+					case 2:
+						axes[6] = 1;
+						axes[7] = 0;
+						break;
+					case 3:
+						axes[6] = 1;
+						axes[7] = 1;
+						break;
+					case 4:
+						axes[6] = 0;
+						axes[7] = 1;
+						break;
+					case 5:
+						axes[6] = -1;
+						axes[7] = 1;
+						break;
+					case 6:
+						axes[6] = -1;
+						axes[7] = 0;
+						break;
+					case 7:
+						axes[6] = -1;
+						axes[7] = -1;
+						break;
+					default:
+						axes[6] = 0;
+						axes[7] = 0;
 				}
 
 				int x = int(axes[6]), y = int(axes[7]);
@@ -471,7 +715,12 @@ void olc::GamePad::poll() {
 	else {
 		XINPUT_STATE state;
 		ZeroMemory(&state, sizeof(XINPUT_STATE));
-		XInputGetState(xId, &state);
+		int res = XInputGetState(xId, &state);
+
+		if (res == ERROR_DEVICE_NOT_CONNECTED) {
+			stillConnected = false;
+			return;
+		}
 
 		axes[2] = -state.Gamepad.sThumbRY / 32768.0f;
 		axes[5] = state.Gamepad.sThumbRX / 32768.0f;
@@ -511,7 +760,7 @@ void olc::GamePad::poll() {
 			XINPUT_GAMEPAD_DPAD_DOWN,
 		};
 
-		for (size_t i = 0; i < sizeof(buttonCodes) / sizeof(WORD); i++) {
+		for (size_t i = 0; i < GP_BUTTON_COUNT; i++) {
 			bool pressed = state.Gamepad.wButtons & buttonCodes[i];
 			handleButton(i, pressed);
 		}
@@ -521,7 +770,7 @@ void olc::GamePad::poll() {
 	}
 }
 
-void olc::GamePad::startVibration(float strength) {
+void olc::GamePad::startVibration(float strength) const {
 	if (xInput) {
 		if (strength < 0) strength = 0;
 		if (strength > 1) strength = 1;
@@ -541,7 +790,7 @@ void olc::GamePad::startVibration(float strength) {
 	}
 }
 
-void olc::GamePad::stopVibration() {
+void olc::GamePad::stopVibration() const {
 	if (xInput)
 		startVibration(0);
 	else {
@@ -554,52 +803,87 @@ olc::GamePad::~GamePad() {
 
 }
 
+std::string olc::GamePad::getId() {
+	return xInput ? std::to_string(xId) : name;
+}
+
 #endif
 #pragma endregion
 
 #pragma region Linux
 
 #ifdef __linux__
-#define ucharIndexForBit(bit) (bit/8)
-#define bitOffsetInUchar(bit) (bit%8)
-#define testBit(bit, array) ((array[bit/8] >> (bit%8)) & 1)
-olc::GamePad::GamePad(std::string path) {
-	fd = open(path.c_str(), O_RDWR | O_NONBLOCK);
-	if (fd < 0) {
-		valid = false;
-		return;
-	}
-	char name[256] = "";
-	if (ioctl(fd, EVIOCGNAME(256), name) > 0)
-		this->name = name;
-	else this->name = "Undefined";
 
-	const int32_t axisCodes[]{
-		ABS_Y,
-		ABS_X,
-		ABS_RY,
-		ABS_RZ,
-		ABS_Z,
-		ABS_RX,
-		ABS_HAT0X,
-		ABS_HAT0Y
+X11::Display *olc::GamePad::display{};
+
+olc::GamePad *olc::GamePad::openGamepad(const std::string &path) {
+	//Parse the bit array from ioctl
+	auto getNthBit = [](const unsigned char *bits, int n) {
+		return (bits[n / 8] >> (n % 8)) & 1;
 	};
 
-	input_absinfo info;
-
-	for (int i = 0; i < sizeof(axisCodes) / sizeof(int32_t); i++) {
-		ioctl(fd, EVIOCGABS(axisCodes[i]), &info);
-		maxAbs.push_back(info.maximum);
+	//Open the file, if can't, it's definitely not a device we can use
+	int fd = open(path.c_str(), O_RDWR | O_NONBLOCK);
+	if (fd < 0) {
+		close(fd);
+		return nullptr;
 	}
 
-	unsigned char features[1 + FF_MAX / 8];
-	memset(features, 0, sizeof(features));
+	//Get the key events the device could send
+	unsigned char keyBits[KEY_CNT];
+	ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keyBits)), keyBits);
+	//All gamepads *should* have BTN_GAMEPAD
+	if (!getNthBit(keyBits, BTN_GAMEPAD)) {
+		close(fd);
+		return nullptr;
+	}
+
+	return new olc::GamePad{ path, fd };
+}
+
+//Create a gamepad from a path to the event file
+olc::GamePad::GamePad(std::string path, int fd)
+	: path{ std::move(path) }, availableAxes{ false }, availableButtons{ false }, effect{}, fd{ fd } {
+
+	//Parse the bit array from ioctl
+	auto getNthBit = [](const unsigned char *bits, int n) {
+		return (bits[n / 8] >> (n % 8)) & 1;
+	};
+
+	//Query the deviceName of the device, if it has one
+	char deviceName[256] = "";
+	if (ioctl(fd, EVIOCGNAME(256), deviceName) > 0) {
+		this->name = deviceName;
+	}
+	else {
+		this->name = "Undefined";
+	}
+
+	//Get the buttons the device reports
+	unsigned char keyBits[KEY_CNT];
+	ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keyBits)), keyBits);
+
+	//Get the axes the device reports
+	unsigned char axisBits[ABS_CNT];
+	ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(axisBits)), axisBits);
+
+	for (int i = 0; i < GP_BUTTON_COUNT; i++) {
+		availableButtons[i] = getNthBit(keyBits, buttonCodes[i]);
+	}
+
+	for (int i = 0; i < GP_AXIS_COUNT; i++) {
+		availableAxes[i] = getNthBit(axisBits, axisCodes[i]);
+		input_absinfo absinfo{};
+		ioctl(fd, EVIOCGABS(axisCodes[i]), &absinfo);
+		maxAbs.push_back(absinfo.maximum);
+	}
+
+	unsigned char features[1 + FF_MAX / 8] = { 0 };
 	ioctl(fd, EVIOCGBIT(EV_FF, sizeof(features)), features);
-	ff = testBit(FF_PERIODIC, features);
+	ff = getNthBit(features, FF_PERIODIC);
 
 	if (ff) {
 		memset(&effect, 0, sizeof(effect));
-		ff_periodic_effect periodic;
 		effect.u.periodic.waveform = FF_SINE;
 		effect.u.periodic.period = 100;
 		effect.u.periodic.magnitude = 0x7fff;
@@ -615,87 +899,62 @@ olc::GamePad::GamePad(std::string path) {
 		effect.id = -1;
 		effect.direction = 0;
 
-		if (ioctl(fd, EVIOCSFF, &effect) == -1)
+		if (ioctl(fd, EVIOCSFF, &effect) == -1) {
 			perror("Error:");
+		}
 	}
-
-	this->path = path;
 }
 
-void olc::GamePad::init() {
-
-}
-
-bool olc::GamePad::readEvent(input_event &event) {
+bool olc::GamePad::readEvent(input_event &event) const {
 	return read(fd, &event, sizeof(input_event)) == sizeof(input_event);
 }
 
 void olc::GamePad::poll() {
 
-	for (int i = 0; i < 20; i++) {
-		buttons[i].bPressed = false;
-		buttons[i].bReleased = false;
+	XResetScreenSaver(display);
+
+	struct stat filestat {};
+	fstat(fd, &filestat);
+	if (filestat.st_nlink == 0) {
+		stillConnected = false;
 	}
 
-	input_event event;
-	while (readEvent(event)) {
-		if (event.type == EV_KEY && ((event.code & BTN_GAMEPAD) == BTN_GAMEPAD || (event.code & BTN_DPAD_UP) == BTN_DPAD_UP)) {
-			const int32_t buttonCodes[]{
-				BTN_X,
-				BTN_A,
-				BTN_B,
-				BTN_Y,
-				BTN_TL,
-				BTN_TR,
-				BTN_TL2,
-				BTN_TR2,
-				BTN_SELECT,
-				BTN_START,
-				BTN_THUMBL,
-				BTN_THUMBR,
-				0,
-				0,
-				BTN_DPAD_LEFT,
-				BTN_DPAD_RIGHT,
-				BTN_DPAD_UP,
-				BTN_DPAD_DOWN
-			};
+	if (!stillConnected) {
+		return;
+	}
 
-			for (int i = 0; i < sizeof(buttonCodes) / sizeof(int32_t); i++) {
-				std::cout << "Event code: " << event.code << '\n';
+	for (auto &button : buttons) {
+		button.bPressed = false;
+		button.bReleased = false;
+	}
+
+	input_event event{};
+	while (readEvent(event)) {
+		if (event.type == EV_KEY &&
+			((event.code & BTN_GAMEPAD) == BTN_GAMEPAD || (event.code & BTN_DPAD_UP) == BTN_DPAD_UP)) {
+
+			for (int i = 0; i < GP_BUTTON_COUNT; i++) {
 				if (event.code == buttonCodes[i]) {
 					bool pressed = event.value;
 					handleButton(i, pressed);
 
-					std::cout << "Button id: " << i << "\n";
-
 					if (i >= 14) {
 						if (i == 14)
-							axes[6] = -int(pressed);
+							axes[6] = -float(pressed);
 						if (i == 15)
-							axes[6] = int(pressed);
+							axes[6] = float(pressed);
 						if (i == 16)
-							axes[7] = -int(pressed);
+							axes[7] = -float(pressed);
 						if (i == 17)
-							axes[7] = int(pressed);
+							axes[7] = float(pressed);
 					}
-					if (i == 6) axes[4] = int(pressed);
-					if (i == 7) axes[3] = int(pressed);
+					if (i == 6) axes[4] = float(pressed);
+					if (i == 7) axes[3] = float(pressed);
 				}
 			}
 		}
 		if (event.type == EV_ABS) {
-			const int32_t axisCodes[]{
-				ABS_Y,
-				ABS_X,
-				ABS_RY,
-				ABS_RZ,
-				ABS_Z,
-				ABS_RX,
-				ABS_HAT0X,
-				ABS_HAT0Y
-			};
-			for (int i = 0; i < sizeof(axisCodes) / sizeof(int32_t); i++) {
+			for (int i = 0; i < GP_AXIS_COUNT; i++) {
 				if (event.code == axisCodes[i]) {
 					float value = float(event.value) / maxAbs[i];
 					axes[i] = value;
@@ -705,8 +964,8 @@ void olc::GamePad::poll() {
 						handleButton(15, event.value == 1);
 					}
 					if (i == 7) {
-						handleButton(17, event.value == -1);
-						handleButton(16, event.value == 1);
+						handleButton(17, event.value == 1);
+						handleButton(16, event.value == -1);
 					}
 					if (i == 4)
 						handleButton(6, axes[4] >= 0.75f);
@@ -718,56 +977,87 @@ void olc::GamePad::poll() {
 	}
 }
 
-std::vector<olc::GamePad> olc::GamePad::getGamepads() {
-	std::vector<GamePad> result;
+void olc::GamePad::updateGamepads() {
+	DIR *dir = opendir("/dev/input/by-id");
 
-	dirent **list;
-
-	int items = scandir(
-		"/dev/input/",
-		&list,
-		[](const dirent *name) {return int(strncmp("event", name->d_name, 5) == 0); },
-		alphasort);
-
-	for (int i = 0; i < items; i++) {
-		std::string path = "/dev/input/";
-		GamePad gp{ path + list[i]->d_name };
-		if (gp.valid)
-			result.push_back(gp);
+	for (dirent *elem = readdir(dir); elem != nullptr; elem = readdir(dir)) {
+		std::string path = "/dev/input/by-id/" + std::string{ elem->d_name };
+		bool found = false;
+		for (auto &gamepad : gamepads) {
+			if (gamepad->path == path) {
+				found = true;
+				if (gamepad->stillConnected) {
+					break;
+				}
+				gamepad->stillConnected = true;
+				gamepad->reconnect();
+				break;
+			}
+		}
+		if (found) {
+			continue;
+		}
+		GamePad *gp = openGamepad(path);
+		if (gp != nullptr) {
+			gamepads.push_back(gp);
+		}
 	}
 
-	return result;
+	closedir(dir);
 }
 
-void olc::GamePad::startVibration(float strength) {
+std::string olc::GamePad::getId() {
+	return path;
+}
+
+void olc::GamePad::startVibration(float strength) const {
 	if (!ff) return;
 	if (strength < 0) strength = 0;
 	if (strength > 1) strength = 1;
 	int g = int(0xFFFF * strength);
-	input_event gain;
+	input_event gain{};
 	gain.type = EV_FF;
 	gain.code = FF_GAIN;
 	gain.value = g;
-	int s = write(fd, &gain, sizeof(gain));
+	write(fd, &gain, sizeof(gain));
 
-	input_event play;
+	input_event play{};
 	play.type = EV_FF;
 	play.code = effect.id;
 	play.value = 3;
-	s = write(fd, (const void*)&play, sizeof(play));
+	write(fd, (const void *)&play, sizeof(play));
 }
 
-void olc::GamePad::stopVibration() {
+void olc::GamePad::stopVibration() const {
 	if (!ff) return;
-	input_event stop;
+	input_event stop{};
 	stop.type = EV_FF;
 	stop.code = effect.id;
 	stop.value = 0;
-	int s = write(fd, (const void*)&stop, sizeof(stop));
+	write(fd, (const void *)&stop, sizeof(stop));
 }
 
 olc::GamePad::~GamePad() {
+	if (fd != -1) {
+		close(fd);
+		fd = -1;
+	}
+	stillConnected = false;
 }
+
+void olc::GamePad::reconnect() {
+	close(fd);
+	fd = open(path.c_str(), O_NONBLOCK | O_RDWR);
+	effect.id = -1;
+	ioctl(fd, EVIOCSFF, &effect);
+}
+
+void olc::GamePad::init() {
+	pge->pgex_Register(new GamePad());
+
+	display = X11::XOpenDisplay(nullptr);
+}
+
 #endif
 
 #pragma endregion
@@ -776,23 +1066,18 @@ olc::GamePad::~GamePad() {
 
 #pragma region Common
 
-olc::GamePad::GamePad() {
-	valid = false;
-}
-
-olc::GamePad olc::GamePad::selectWithButton(std::vector<olc::GamePad> &pads, olc::GPButtons b) {
-	for (auto &gp : pads) {
-		gp.poll();
-		if (gp.getButton(b).bPressed)
+olc::GamePad *olc::GamePad::selectWithButton(olc::GPButtons b) {
+	for (auto &gp : gamepads) {
+		if (gp->getButton(b).bPressed)
 			return gp;
 	}
-	GamePad nullPad;
-	return nullPad;
+	return nullptr;
 }
 
 #ifndef OLC_GAMEPAD_DEADZONE
 #define OLC_GAMEPAD_DEADZONE 0.2f
 #endif
+
 float olc::GamePad::getAxis(olc::GPAxes a) {
 
 	float axis = axes[static_cast<int>(a)];
@@ -816,11 +1101,11 @@ std::string olc::GamePad::getName() {
 	return name;
 }
 
-int olc::GamePad::getAxisCount() {
+int olc::GamePad::getAxisCount() const {
 	return axisCount;
 }
 
-int olc::GamePad::getButtonCount() {
+int olc::GamePad::getButtonCount() const {
 	return buttonCount;
 }
 
@@ -833,7 +1118,34 @@ void olc::GamePad::handleButton(int id, bool value) {
 		buttons[id].bHeld = false;
 		buttons[id].bReleased = true;
 	}
+#ifdef __linux__
+	XResetScreenSaver(display);
+#endif
 }
+
+bool olc::GamePad::hasAxis(GPAxes a) {
+	return availableAxes[int32_t(a)];
+}
+
+bool olc::GamePad::hasButton(GPButtons b) {
+	return availableButtons[int32_t(b)];
+}
+
+void olc::GamePad::OnBeforeUserUpdate(float &fElapsedTime) {
+	updateGamepads();
+
+	for (auto &gamepad : gamepads) {
+		if (gamepad->stillConnected) {
+			gamepad->poll();
+		}
+	}
+}
+
+std::vector<olc::GamePad *> &olc::GamePad::getGamepads() {
+	return gamepads;
+}
+
+std::vector<olc::GamePad *> olc::GamePad::gamepads;
 
 #pragma endregion
 
