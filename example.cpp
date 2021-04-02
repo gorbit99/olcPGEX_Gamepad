@@ -23,9 +23,11 @@ class Test : public olc::PixelGameEngine {
         }
 
         if (!gamepad->getButton(olc::GPButtons::L2).bHeld) {
-            DrawRect(10, 10, 30, 10);
+            FillRect(10, 10, 30, 10, olc::WHITE * gamepad->getAxis(olc::GPAxes::TL));
+            DrawRect(10, 10, 30, 10, olc::RED);
         } else {
-            FillRect(10, 10, 30, 10);
+            FillRect(10, 10, 30, 10, olc::WHITE * gamepad->getAxis(olc::GPAxes::TL));
+            DrawRect(10, 10, 30, 10, olc::BLUE);
         }
 
         if (!gamepad->getButton(olc::GPButtons::L1).bHeld) {
@@ -35,9 +37,11 @@ class Test : public olc::PixelGameEngine {
         }
 
         if (!gamepad->getButton(olc::GPButtons::R2).bHeld) {
-            DrawRect(360, 10, 30, 10);
+            FillRect(360, 10, 30, 10, olc::WHITE * gamepad->getAxis(olc::GPAxes::TR));
+            DrawRect(360, 10, 30, 10, olc::RED);
         } else {
-            FillRect(360, 10, 30, 10);
+            FillRect(360, 10, 30, 10, olc::WHITE * gamepad->getAxis(olc::GPAxes::TR));
+            DrawRect(360, 10, 30, 10, olc::BLUE);
         }
 
         if (!gamepad->getButton(olc::GPButtons::R1).bHeld) {
@@ -100,9 +104,31 @@ class Test : public olc::PixelGameEngine {
             FillRect(60, 110, 10, 10);
         }
 
-        FillCircle(20 + gamepad->getAxis(olc::GPAxes::LX) * 10, 70 + gamepad->getAxis(olc::GPAxes::LY) * 10, 10);
+        if (!gamepad->getButton(olc::GPButtons::SELECT).bHeld) {
+            DrawRect(150, 30, 30, 10);
+        } else {
+            FillRect(150, 30, 30, 10);
+        }
 
-        FillCircle(320 + gamepad->getAxis(olc::GPAxes::RX) * 10, 100 + gamepad->getAxis(olc::GPAxes::RY) * 10, 10);
+        if (!gamepad->getButton(olc::GPButtons::START).bHeld) {
+            DrawRect(200, 30, 30, 10);
+        } else {
+            FillRect(200, 30, 30, 10);
+        }
+
+        DrawLine(80, 115, gamepad->getAxis(olc::GPAxes::DX) * 10 + 80, gamepad->getAxis(olc::GPAxes::DY) * 10 + 115);
+
+        if (gamepad->getButton(olc::GPButtons::L3).bHeld) {
+            FillCircle(20 + gamepad->getAxis(olc::GPAxes::LX) * 10, 70 + gamepad->getAxis(olc::GPAxes::LY) * 10, 10);
+        } else {
+            DrawCircle(20 + gamepad->getAxis(olc::GPAxes::LX) * 10, 70 + gamepad->getAxis(olc::GPAxes::LY) * 10, 10);
+        }
+
+        if (gamepad->getButton(olc::GPButtons::R3).bHeld) {
+            FillCircle(320 + gamepad->getAxis(olc::GPAxes::RX) * 10, 100 + gamepad->getAxis(olc::GPAxes::RY) * 10, 10);
+        } else {
+            DrawCircle(320 + gamepad->getAxis(olc::GPAxes::RX) * 10, 100 + gamepad->getAxis(olc::GPAxes::RY) * 10, 10);
+        }
         return true;
     }
 };
