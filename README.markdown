@@ -1,6 +1,11 @@
 # olcPGEX\_Gamepad
 Cross platform (Windows + Linux) Gamepad API for the Pixel Game Engine (http://onelonecoder.com/)
 
+# Changelog
+
+- 2.0: Major overhaul, definitely ABI breaking, but it works much nicer
+- 2.1: Now supports emscripten alongside Linux and Windows
+
 # Compiling
 
 #### Windows
