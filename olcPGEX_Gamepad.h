@@ -70,8 +70,11 @@ few problems
 
 #include <cstring>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
+#include <optional>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -190,6 +193,7 @@ namespace olc {
         static IDirectInput8A *dev;
 #endif
 #ifdef __linux__
+
         int fd = -1;
         ff_effect effect{};
         std::vector<int> maxAbs;
@@ -198,8 +202,11 @@ namespace olc {
         void reconnect();
         bool readEvent(input_event &event) const;
 
+        static void enumerateGamepads();
         static GamePad *openGamepad(const std::string &path);
         static X11::Display *display;
+        static std::optional<int> inotifyFd;
+
 
         constexpr static const int32_t buttonCodes[GP_BUTTON_COUNT]{
                 BTN_X,
@@ -829,6 +836,7 @@ std::string olc::GamePad::getId() {
 #ifdef __linux__
 
 X11::Display *olc::GamePad::display{};
+std::optional<int> olc::GamePad::inotifyFd = std::nullopt;
 
 olc::GamePad *olc::GamePad::openGamepad(const std::string &path) {
     // Parse the bit array from ioctl
@@ -995,6 +1003,40 @@ void olc::GamePad::poll() {
 }
 
 void olc::GamePad::updateGamepads() {
+    // If for some reason we aren't set up to listen for new gamepads, find all
+    // the existing ones and set up for listening next frame
+    if (!inotifyFd) {
+        enumerateGamepads();
+        return;
+    }
+
+    alignas(alignof(inotify_event))
+    uint8_t buf[sizeof(inotify_event) + NAME_MAX + 1];
+
+    while(read(*inotifyFd, buf, sizeof(buf)) > 0) {
+        const inotify_event *event = reinterpret_cast<inotify_event*>(buf);
+
+        if (event->mask & IN_CREATE) {
+            std::string path = "/dev/input/by-id/" + std::string{event->name};
+
+            GamePad *gp = openGamepad(path);
+
+            if (gp != nullptr) {
+                gamepads.push_back(gp);
+            }
+        }
+    }
+
+    // If something's wrong with the inotfiy file descriptor, close it and let
+    // enumerateGamepads() try to set things up again next frame
+    if (errno != EAGAIN) {
+        char *errname = strerror(errno);
+        close(*inotifyFd);
+        inotifyFd = std::nullopt;
+    }
+}
+
+void olc::GamePad::enumerateGamepads() {
     DIR *dir = opendir("/dev/input/by-id");
 
     for (dirent *elem = readdir(dir); elem != nullptr; elem = readdir(dir)) {
@@ -1021,6 +1063,20 @@ void olc::GamePad::updateGamepads() {
     }
 
     closedir(dir);
+
+    // Now that we've found all the existing gamepads, set up to listen for any
+    // new ones that might show up
+    if (!inotifyFd) {
+        inotifyFd = inotify_init1(IN_NONBLOCK);
+        if (*inotifyFd < 0)
+            return;
+
+        if (inotify_add_watch(*inotifyFd, "/dev/input/by-id", IN_CREATE) < 0){
+            close(*inotifyFd);
+            inotifyFd = std::nullopt;
+            return;
+        }
+    }
 }
 
 std::string olc::GamePad::getId() {
@@ -1077,6 +1133,10 @@ void olc::GamePad::init() {
     pge->pgex_Register(new GamePad());
 
     display = X11::XOpenDisplay(nullptr);
+
+    // Go find all the gamepads in the startup phase and set up the listening
+    // logic for per-frame updates
+    enumerateGamepads();
 }
 
 #endif
