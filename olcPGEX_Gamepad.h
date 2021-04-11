@@ -893,10 +893,17 @@ olc::GamePad::GamePad(std::string path, int fd)
 
   unsigned char features[1 + FF_MAX / 8] = {0};
   ioctl(fd, EVIOCGBIT(EV_FF, sizeof(features)), features);
-  ff = getNthBit(features, FF_PERIODIC);
 
-  if (ff) {
-    memset(&effect, 0, sizeof(effect));
+  // effect data common to both types
+  memset(&effect, 0, sizeof(effect));
+  effect.replay.delay = 0;
+  effect.replay.length = 0xffff;
+  effect.id = -1;
+  effect.direction = 0;
+
+  if (ff = getNthBit(features, FF_PERIODIC)) {
+    // Support Vibrations based on FF_PERIODIC
+    
     effect.u.periodic.waveform = FF_SINE;
     effect.u.periodic.period = 100;
     effect.u.periodic.magnitude = 0x7fff;
@@ -906,11 +913,17 @@ olc::GamePad::GamePad(std::string path, int fd)
     effect.u.periodic.envelope.attack_level = 0x7fff;
     effect.u.periodic.envelope.fade_length = 0;
     effect.u.periodic.envelope.fade_level = 0x7fff;
-    effect.replay.delay = 0;
-    effect.replay.length = 0xffff;
     effect.type = FF_PERIODIC;
-    effect.id = -1;
-    effect.direction = 0;
+
+    if (ioctl(fd, EVIOCSFF, &effect) == -1) {
+      perror("Error:");
+    }
+  } else if(ff = getNthBit(features, FF_RUMBLE)) {
+    // Support Vibrations based on FF_RUMBLE
+
+    effect.type = FF_RUMBLE;
+    effect.u.rumble.weak_magnitude = 0x7fff;;
+    effect.u.rumble.strong_magnitude = 0x7fff;;
 
     if (ioctl(fd, EVIOCSFF, &effect) == -1) {
       perror("Error:");
