@@ -3,8 +3,10 @@ Cross platform (Windows + Linux) Gamepad API for the Pixel Game Engine (http://o
 
 # Changelog
 
-- 2.0: Major overhaul, definitely ABI breaking, but it works much nicer
-- 2.1: Now supports emscripten alongside Linux and Windows
+- 2.0.0: Major overhaul, definitely ABI breaking, but it works much nicer
+- 2.1.0: Now supports emscripten alongside Linux and Windows
+- 2.1.1: Changed the search directory on linux from /dev/input/by-id to
+  /dev/input for the controllers that don't report themselves in the latter
 
 # Compiling
 
