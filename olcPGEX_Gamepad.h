@@ -1005,7 +1005,7 @@ void olc::GamePad::updateGamepads() {
     const inotify_event *event = reinterpret_cast<inotify_event *>(buf);
 
     if (event->mask & IN_CREATE) {
-      std::string path = "/dev/input" + std::string{event->name};
+      std::string path = "/dev/input/" + std::string{event->name};
 
       GamePad *gp = openGamepad(path);
 
@@ -1028,7 +1028,7 @@ void olc::GamePad::enumerateGamepads() {
   DIR *dir = opendir("/dev/input");
 
   for (dirent *elem = readdir(dir); elem != nullptr; elem = readdir(dir)) {
-    std::string path = "/dev/input" + std::string{elem->d_name};
+    std::string path = "/dev/input/" + std::string{elem->d_name};
     bool found = false;
     for (auto &gamepad : gamepads) {
       if (gamepad->path == path) {
