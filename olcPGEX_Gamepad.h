@@ -161,7 +161,7 @@ public:
   static GamePad *selectWithButton(olc::GPButtons b);
 
 protected:
-  void OnBeforeUserUpdate(float &fElapsedTime) override;
+  bool OnBeforeUserUpdate(float &fElapsedTime) override;
 
 private:
   GamePad() = default;
@@ -1277,7 +1277,7 @@ bool olc::GamePad::hasButton(GPButtons b) {
   return availableButtons[int32_t(b)];
 }
 
-void olc::GamePad::OnBeforeUserUpdate(float &fElapsedTime) {
+bool olc::GamePad::OnBeforeUserUpdate(float &fElapsedTime) {
   updateGamepads();
 
   for (auto &gamepad : gamepads) {
@@ -1285,6 +1285,7 @@ void olc::GamePad::OnBeforeUserUpdate(float &fElapsedTime) {
       gamepad->poll();
     }
   }
+  return false;
 }
 
 std::vector<olc::GamePad *> &olc::GamePad::getGamepads() { return gamepads; }
