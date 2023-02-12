@@ -159,6 +159,7 @@ public:
   void stopVibration() const;
 
   static GamePad *selectWithButton(olc::GPButtons b);
+  static GamePad *selectWithAnyButton();
 
 protected:
   bool OnBeforeUserUpdate(float &fElapsedTime) override;
@@ -1227,15 +1228,29 @@ olc::GamePad *olc::GamePad::selectWithButton(olc::GPButtons b) {
   return nullptr;
 }
 
+olc::GamePad *olc::GamePad::selectWithAnyButton() {
+  for (auto &gp : gamepads) {
+    for (int b = 0; b < GP_BUTTON_COUNT; b++) {
+      if (gp->getButton(olc::GPButtons(b)).bPressed)
+        return gp;
+    }
+  }
+  return nullptr;
+}
+
 #ifndef OLC_GAMEPAD_DEADZONE
-#define OLC_GAMEPAD_DEADZONE 0.2f
+#define OLC_GAMEPAD_DEADZONE 0.2f  // Inner Deadzone
+#endif
+
+#ifndef OLC_GAMEPAD_DEADZONE_OUTER
+#define OLC_GAMEPAD_DEADZONE_OUTER 0.2f
 #endif
 
 float olc::GamePad::getAxis(olc::GPAxes a) {
   float axis = axes[static_cast<int>(a)];
-  if (axis > 1)
+  if (axis > 1 - OLC_GAMEPAD_DEADZONE_OUTER)
     axis = 1;
-  if (axis < -1)
+  if (axis < OLC_GAMEPAD_DEADZONE_OUTER - 1)
     axis = -1;
   if (axis <= OLC_GAMEPAD_DEADZONE && axis >= -OLC_GAMEPAD_DEADZONE)
     axis = 0;
