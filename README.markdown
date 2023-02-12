@@ -28,7 +28,7 @@ When using the code, you have to define `OLC_PGE_GAMEPAD` in the same manner as 
 To initialize the extension, call `olc::GamePad::init()`. Afterwards it will automatically collect gamepads that are connected and will poll them for input.
 
 To get a gamepad, you can either get a reference to the std::vector containing all of the controllers with `olc::GamePad::getGamepads()` and index into that, or if you only need one you can use
-`olc::Gamepad::selectWithButton(button)`. Both of these methods return a pointer to a gamepad. SelectWithButton returns nullptr, if no such gamepad is found.
+`olc::Gamepad::selectWithButton(button)` or `olc::Gamepad::selectWithAnyButton()`. All three of these methods return a pointer to a gamepad. `selectWithButton` and `selectWithAnyButton` return nullptr, if no such gamepad is found.
 
 You can query the capabilities of a certain contoller by calling `myGamepad->hasButton(button)` and `myGamepad->hasAxis(axis)`. To get the state of a button or axis, you can do `myGamepad->getButton(button)`
 and `myGamepad->getAxis(axis)`. Buttons use the usual structure known from the PixelGameEngine, axes return a float.
