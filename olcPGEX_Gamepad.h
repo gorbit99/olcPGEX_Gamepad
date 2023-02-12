@@ -159,6 +159,7 @@ public:
   void stopVibration() const;
 
   static GamePad *selectWithButton(olc::GPButtons b);
+  static GamePad *selectWithAnyButton();
 
 protected:
   bool OnBeforeUserUpdate(float &fElapsedTime) override;
@@ -903,7 +904,7 @@ olc::GamePad::GamePad(std::string path, int fd)
 
   if (ff = getNthBit(features, FF_PERIODIC)) {
     // Support Vibrations based on FF_PERIODIC
-    
+
     effect.u.periodic.waveform = FF_SINE;
     effect.u.periodic.period = 100;
     effect.u.periodic.magnitude = 0x7fff;
@@ -918,12 +919,14 @@ olc::GamePad::GamePad(std::string path, int fd)
     if (ioctl(fd, EVIOCSFF, &effect) == -1) {
       perror("Error:");
     }
-  } else if(ff = getNthBit(features, FF_RUMBLE)) {
+  } else if (ff = getNthBit(features, FF_RUMBLE)) {
     // Support Vibrations based on FF_RUMBLE
 
     effect.type = FF_RUMBLE;
-    effect.u.rumble.weak_magnitude = 0x7fff;;
-    effect.u.rumble.strong_magnitude = 0x7fff;;
+    effect.u.rumble.weak_magnitude = 0x7fff;
+    ;
+    effect.u.rumble.strong_magnitude = 0x7fff;
+    ;
 
     if (ioctl(fd, EVIOCSFF, &effect) == -1) {
       perror("Error:");
@@ -1221,8 +1224,20 @@ void olc::GamePad::init() {
 
 olc::GamePad *olc::GamePad::selectWithButton(olc::GPButtons b) {
   for (auto &gp : gamepads) {
-    if (gp->getButton(b).bPressed)
+    if (gp->getButton(b).bPressed) {
       return gp;
+    }
+  }
+  return nullptr;
+}
+
+olc::GamePad *olc::GamePad::selectWithAnyButton() {
+  for (auto &gp : gamepads) {
+    for (int b = 0; b < GP_BUTTON_COUNT; b++) {
+      if (gp->getButton(olc::GPButtons(b)).bPressed) {
+        return gp;
+      }
+    }
   }
   return nullptr;
 }
@@ -1231,14 +1246,18 @@ olc::GamePad *olc::GamePad::selectWithButton(olc::GPButtons b) {
 #define OLC_GAMEPAD_DEADZONE 0.2f
 #endif
 
+#ifndef OLC_GAMEPAD_DEADZONE_OUTER
+#define OLC_GAMEPAD_DEADZONE_OUTER 0.2f
+#endif
+
 float olc::GamePad::getAxis(olc::GPAxes a) {
   float axis = axes[static_cast<int>(a)];
-  if (axis > 1)
-    axis = 1;
-  if (axis < -1)
-    axis = -1;
-  if (axis <= OLC_GAMEPAD_DEADZONE && axis >= -OLC_GAMEPAD_DEADZONE)
+  if (std::abs(axis) < OLC_GAMEPAD_DEADZONE) {
     axis = 0;
+  }
+  if (std::abs(axis) > 1 - OLC_GAMEPAD_DEADZONE_OUTER) {
+    axis = axis > 0 ? 1.0f : -1.0f;
+  }
 
 #ifdef WIN32
   if (!xInput && (a == GPAxes::TL || a == GPAxes::TR))
