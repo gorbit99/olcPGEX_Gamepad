@@ -92,5 +92,8 @@ DY      -1..1    DPAD vertical axis
 
 An example file is provided to test the extension.
 
+#### Deadzones
+By default the extension includes deadzones for both the outer and inner part of axis inputs (first sets the axis value to 1 if the input falls above that range, the second sets it to 0, if it falls below it). These can be modified (and even set to 0 to disable them) by defining `OLC_GAMEPAD_DEADZONE` and `OLC_GAMEPAD_DEADZONE_OUTER` to some value between 0 and 1 before including the extension. Both of them are counted from their respective end, so the default values are `0.2` for both.
+
 #### Controller support:
 The code supports Xbox controllers and the DualShock 4 controller out of the box. If you have a problem with the support for a game controller, please open an issue and I'll try to resolve it. Alternatively there exists many programs to turn any controller into an xinput compatible controller, those should fix the issue.
