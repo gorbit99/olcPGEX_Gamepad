@@ -94,10 +94,3 @@ An example file is provided to test the extension.
 
 #### Controller support:
 The code supports Xbox controllers and the DualShock 4 controller out of the box. If you have a problem with the support for a game controller, please open an issue and I'll try to resolve it. Alternatively there exists many programs to turn any controller into an xinput compatible controller, those should fix the issue.
-
-# Migrating from the previous version
-Version 0.2.0 changed a lot, so for previous users, the following has to be done to migrate to the new version:
-
-- Now you get gamepads in pointer form, so you'll need to swap the types out.
-- Getting the gamepad vector now gives you a reference to a vector of pointers, also you can index into it safely now.
-- You don't need to (and can't) manually poll gamepads anymore.
