@@ -80,6 +80,11 @@ few problems
 
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 namespace olc {
 #pragma region Enums
 #define GP_BUTTON_COUNT 18
